@@ -24,6 +24,7 @@
 #include <WirelessHEX69.h> 
 
 #define NODEID      2       // node ID used for this unit
+#define GATEWAYID	1
 #define NETWORKID   20
 #define FREQUENCY     RF69_915MHZ
 #define IS_RFM69HW  
@@ -35,8 +36,9 @@
 #define BLINKPERIOD 2000
 
 
-#define LED           9 // Moteinos hsave LEDs on D9
-#define FLASH_SS      8 // and FLASH SS on D8
+#define LED         9	// Moteinos hsave LEDs on D9
+#define FLASH_SS    8	// and FLASH SS on D8
+#define POWER12V	2	// 12V measurement
 
 RFM69 radio;
 char input = 0;
@@ -56,9 +58,9 @@ void setup() {
 	Serial.begin(SERIAL_BAUD);
 	radio.initialize(FREQUENCY, NODEID, NETWORKID);
 	radio.encrypt(ENCRYPTKEY); //OPTIONAL
-#ifdef IS_RFM69HW
-	radio.setHighPower(); //only for RFM69HW!
-#endif
+	#ifdef IS_RFM69HW
+		radio.setHighPower(); //only for RFM69HW!
+	#endif
 	Serial.print("Start node...");
 
 	if (flash.initialize())
@@ -68,69 +70,10 @@ void setup() {
 }
 
 void loop() {
-	// This part is optional, useful for some debugging.
-	// Handle serial input (to allow basic DEBUGGING of FLASH chip)
-	// ie: display first 256 bytes in FLASH, erase chip, write bytes at first 10 positions, etc
-	if (Serial.available() > 0) {
-		input = Serial.read();
-		if (input == 'd') //d=dump first page
-		{
-			Serial.println("Flash content:");
-			int counter = 0;
-
-			while (counter <= 256) {
-				Serial.print(flash.readByte(counter++), HEX);
-				Serial.print('.');
-			}
-
-			Serial.println();
-		}
-		else if (input == 'e')
-		{
-			Serial.print("Erasing Flash chip ... ");
-			flash.chipErase();
-			while (flash.busy());
-			Serial.println("DONE");
-		}
-		else if (input == 'i')
-		{
-			Serial.print("DeviceID: ");
-			Serial.println(flash.readDeviceId(), HEX);
-		}
-		else if (input == 'r')
-		{
-			Serial.print("Rebooting");
-			resetUsingWatchdog(true);
-		}
-		else if (input == 'R')
-		{
-			Serial.print("RFM69 registers:");
-			radio.readAllRegs();
-		}
-		else if (input >= 48 && input <= 57) //0-9
-		{
-			Serial.print("\nWriteByte("); Serial.print(input); Serial.print(")");
-			flash.writeByte(input - 48, millis() % 2 ? 0xaa : 0xbb);
-		}
-	}
-
 	// Check for existing RF data, potentially for a new sketch wireless upload
-	// For this to work this check has to be done often enough to be
-	// picked up when a GATEWAY is trying hard to reach this node for a new sketch wireless upload
-	if (radio.receiveDone())
-	{
-		Serial.print("Got [");
-		Serial.print(radio.SENDERID);
-		Serial.print(':');
-		Serial.print(radio.DATALEN);
-		Serial.print("] > ");
-		for (byte i = 0; i < radio.DATALEN; i++)
-			Serial.print((char)radio.DATA[i], HEX);
-		Serial.println();
+	if (radio.receiveDone()) {
 		CheckForWirelessHEX(radio, flash, true);
-		Serial.println();
 	}
-	//else Serial.print('.');
 
 	////////////////////////////////////////////////////////////////////////////////////////////
 	// Real sketch code here, let's blink the onboard LED
@@ -138,6 +81,10 @@ void loop() {
 	{
 		lastPeriod++;
 		digitalWrite(LED, lastPeriod % 2);
+		int voltage = analogRead(POWER12V);
+		char buffer[7];         //the ASCII of the integer will be stored in this char array
+		itoa(voltage, buffer, 10); //(integer, yourBuffer, base) -> fix this
+		radio.sendWithRetry(GATEWAYID, buffer, sizeof(buffer), 1);
 	}
 	////////////////////////////////////////////////////////////////////////////////////////////
 }

@@ -45,13 +45,44 @@ void setup() {
 	Serial.begin(SERIAL_BAUD);
 	radio.initialize(FREQUENCY, NODEID, NETWORKID);
 	radio.encrypt(ENCRYPTKEY); //OPTIONAL
-#ifdef IS_RFM69HW
-	radio.setHighPower(); //only for RFM69HW!
-#endif
+	#ifdef IS_RFM69HW
+		radio.setHighPower(); //only for RFM69HW!
+	#endif
 	Serial.println("Start wireless gateway...");
 }
 
 void loop() {
+
+	// Send data for wireless programming
+	RunSerialCommands();
+
+	if (radio.receiveDone())
+	{
+		for (byte i = 0; i < radio.DATALEN; i++)
+			Serial.print((char)radio.DATA[i]);
+
+		if (radio.ACK_REQUESTED)
+		{
+			radio.sendACK();
+			Serial.print(" - ACK sent");
+		}
+
+		Serial.println();
+	}
+	Blink(LED, 5); //heartbeat
+}
+
+void Blink(byte PIN, int DELAY_MS)
+{
+	pinMode(PIN, OUTPUT);
+	digitalWrite(PIN, HIGH);
+	delay(DELAY_MS);
+	digitalWrite(PIN, LOW);
+}
+
+
+// Checks for Serial Commands to transmit data for wireless programming
+void RunSerialCommands() {
 	byte inputLen = readSerialLine(input, 10, 64, 100); //readSerialLine(char* input, char endOfLineChar=10, byte maxLength=64, uint16_t timeout=1000);
 
 	if (inputLen == 4 && input[0] == 'F' && input[1] == 'L' && input[2] == 'X' && input[3] == '?') {
@@ -87,27 +118,4 @@ void loop() {
 	else if (inputLen>0) { //just echo back
 		Serial.print("SERIAL IN > "); Serial.println(input);
 	}
-
-	if (radio.receiveDone())
-	{
-		for (byte i = 0; i < radio.DATALEN; i++)
-			Serial.print((char)radio.DATA[i]);
-
-		if (radio.ACK_REQUESTED)
-		{
-			radio.sendACK();
-			Serial.print(" - ACK sent");
-		}
-
-		Serial.println();
-	}
-	Blink(LED, 5); //heartbeat
-}
-
-void Blink(byte PIN, int DELAY_MS)
-{
-	pinMode(PIN, OUTPUT);
-	digitalWrite(PIN, HIGH);
-	delay(DELAY_MS);
-	digitalWrite(PIN, LOW);
 }
