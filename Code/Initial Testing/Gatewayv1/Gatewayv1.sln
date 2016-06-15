@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.30501.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Gatewayv1", "Gatewayv1.vcxproj", "{388091A4-5B45-44D3-A56D-BDD87B5A78E9}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Nodev1", "..\Nodev1\Nodev1.vcxproj", "{8734B2A2-3ED8-460F-9870-4321C6128D47}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{388091A4-5B45-44D3-A56D-BDD87B5A78E9}.Debug|Win32.ActiveCfg = Debug|Win32
+		{388091A4-5B45-44D3-A56D-BDD87B5A78E9}.Debug|Win32.Build.0 = Debug|Win32
+		{388091A4-5B45-44D3-A56D-BDD87B5A78E9}.Release|Win32.ActiveCfg = Release|Win32
+		{388091A4-5B45-44D3-A56D-BDD87B5A78E9}.Release|Win32.Build.0 = Release|Win32
+		{8734B2A2-3ED8-460F-9870-4321C6128D47}.Debug|Win32.ActiveCfg = Debug|Win32
+		{8734B2A2-3ED8-460F-9870-4321C6128D47}.Debug|Win32.Build.0 = Debug|Win32
+		{8734B2A2-3ED8-460F-9870-4321C6128D47}.Release|Win32.ActiveCfg = Release|Win32
+		{8734B2A2-3ED8-460F-9870-4321C6128D47}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
