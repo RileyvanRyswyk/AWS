@@ -6637,7 +6637,7 @@ Source: http://www.murata.com .. GRM43DR72E224KW01.pdf</description>
 <part name="SUPPLY13" library="supply2" deviceset="GND" device=""/>
 <part name="SUPPLY15" library="SparkFun" deviceset="VCC" device="" value="5V"/>
 <part name="R8" library="rcl" deviceset="R-US_" device="0204/2V" value="10k"/>
-<part name="R9" library="rcl" deviceset="R-US_" device="0204/2V" value="10k"/>
+<part name="R9" library="rcl" deviceset="R-US_" device="0204/2V" value="3.3k"/>
 <part name="SUPPLY16" library="supply2" deviceset="GND" device=""/>
 <part name="SUPPLY17" library="SparkFun" deviceset="VCC" device="" value="12V"/>
 </parts>
