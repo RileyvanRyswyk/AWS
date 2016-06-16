@@ -80,7 +80,11 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Message.h" />
     <ClInclude Include="__vm\.WateringNode.vsarduino.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Message.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

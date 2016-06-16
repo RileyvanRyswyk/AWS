@@ -17,11 +17,12 @@
 // **********************************************************************************
 
 // **********************************************************************************
+#include "Message.h"
 #include <RFM69.h>         
 #include <SPI.h>
 #include <SPIFlash.h>      
 #include <avr/wdt.h>
-#include <WirelessHEX69.h> 
+#include <WirelessHEX69.h>
 
 #define NODEID      2       // node ID used for this unit
 #define GATEWAYID	1
@@ -33,12 +34,15 @@
 #define ACK_TIME    30  // # of ms to wait for an ack
 #define ENCRYPTKEY "automaticWaterSy"
 
-#define BLINKPERIOD 2000
+#define UPDATEPERIOD 4000
 
 
 #define LED         9	// Moteinos hsave LEDs on D9
 #define FLASH_SS    8	// and FLASH SS on D8
 #define POWER12V	2	// 12V measurement
+#define POWER5V	6	// 5V measurement
+#define FAN			14	// Fan Driver Pin
+#define FAN_ENABLE	15  // Enable Fan driver
 
 RFM69 radio;
 char input = 0;
@@ -55,18 +59,24 @@ SPIFlash flash(FLASH_SS, 0xEF30); //EF30 for windbond 4mbit flash
 
 void setup() {
 	pinMode(LED, OUTPUT);
+	pinMode(FAN, OUTPUT);
+	pinMode(FAN_ENABLE, OUTPUT);
 	Serial.begin(SERIAL_BAUD);
 	radio.initialize(FREQUENCY, NODEID, NETWORKID);
 	radio.encrypt(ENCRYPTKEY); //OPTIONAL
 	#ifdef IS_RFM69HW
 		radio.setHighPower(); //only for RFM69HW!
 	#endif
+
 	Serial.print("Start node...");
 
 	if (flash.initialize())
 		Serial.println("SPI Flash Init OK!");
 	else
 		Serial.println("SPI Flash Init FAIL!");
+
+	digitalWrite(FAN, LOW);
+	digitalWrite(FAN_ENABLE, HIGH);
 }
 
 void loop() {
@@ -77,14 +87,15 @@ void loop() {
 
 	////////////////////////////////////////////////////////////////////////////////////////////
 	// Real sketch code here, let's blink the onboard LED
-	if ((int)(millis() / BLINKPERIOD) > lastPeriod)
+	if ((int)(millis() / UPDATEPERIOD) > lastPeriod)
 	{
 		lastPeriod++;
 		digitalWrite(LED, lastPeriod % 2);
-		int voltage = analogRead(POWER12V);
-		char buffer[7];         //the ASCII of the integer will be stored in this char array
-		itoa(voltage, buffer, 10); //(integer, yourBuffer, base) -> fix this
-		radio.sendWithRetry(GATEWAYID, buffer, sizeof(buffer), 1);
+		digitalWrite(FAN, lastPeriod % 2);
+		Message msg(radio, GATEWAYID);
+		msg.add_data('V', analogRead(POWER12V));
+		msg.add_data('v', analogRead(POWER5V));
+		msg.send_msg();
 	}
 	////////////////////////////////////////////////////////////////////////////////////////////
 }
