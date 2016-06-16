@@ -40,9 +40,12 @@
 #define LED         9	// Moteinos hsave LEDs on D9
 #define FLASH_SS    8	// and FLASH SS on D8
 #define POWER12V	2	// 12V measurement
-#define POWER5V	6	// 5V measurement
+#define POWER5V		6	// 5V measurement
 #define FAN			14	// Fan Driver Pin
-#define FAN_ENABLE	15  // Enable Fan driver
+#define FAN_EN		15  // Enable Fan driver
+#define VALVE_EN	4	// Enable Valve driver
+#define VALVE_P		5	// Positive terminal of Valve
+#define VALVE_N		6	// Negative terminal of Valve
 
 RFM69 radio;
 char input = 0;
@@ -58,9 +61,15 @@ long lastPeriod = -1;
 SPIFlash flash(FLASH_SS, 0xEF30); //EF30 for windbond 4mbit flash
 
 void setup() {
+
+	// Configure pin directions
 	pinMode(LED, OUTPUT);
 	pinMode(FAN, OUTPUT);
-	pinMode(FAN_ENABLE, OUTPUT);
+	pinMode(FAN_EN, OUTPUT);
+	pinMode(VALVE_EN, OUTPUT);
+	pinMode(VALVE_P, OUTPUT);
+	pinMode(VALVE_N, OUTPUT);
+
 	Serial.begin(SERIAL_BAUD);
 	radio.initialize(FREQUENCY, NODEID, NETWORKID);
 	radio.encrypt(ENCRYPTKEY); //OPTIONAL
@@ -68,15 +77,12 @@ void setup() {
 		radio.setHighPower(); //only for RFM69HW!
 	#endif
 
-	Serial.print("Start node...");
-
-	if (flash.initialize())
-		Serial.println("SPI Flash Init OK!");
-	else
-		Serial.println("SPI Flash Init FAIL!");
-
 	digitalWrite(FAN, LOW);
-	digitalWrite(FAN_ENABLE, HIGH);
+	digitalWrite(FAN_EN, HIGH);
+	digitalWrite(VALVE_P, LOW);
+	digitalWrite(VALVE_N, LOW);
+	digitalWrite(VALVE_EN, HIGH);
+
 }
 
 void loop() {
@@ -92,6 +98,13 @@ void loop() {
 		lastPeriod++;
 		digitalWrite(LED, lastPeriod % 2);
 		digitalWrite(FAN, lastPeriod % 2);
+		digitalWrite(VALVE_P, lastPeriod % 2);
+		digitalWrite(VALVE_N, (lastPeriod+1) % 2);
+
+		delay(30);
+		digitalWrite(VALVE_N, lastPeriod % 2);
+
+
 		Message msg(radio, GATEWAYID);
 		msg.add_data('V', analogRead(POWER12V));
 		msg.add_data('v', analogRead(POWER5V));
