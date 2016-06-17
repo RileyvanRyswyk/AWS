@@ -48,6 +48,7 @@ Temporary Items
 
 # Schematic save files
 *.s*
+*.b*
 
 # Visual Studio
 # ===========================
