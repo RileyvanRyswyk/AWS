@@ -6513,11 +6513,11 @@ Source: http://www.murata.com .. GRM43DR72E224KW01.pdf</description>
 <part name="J1" library="con-amp" deviceset="215876-6" device="" value="WeatherShield"/>
 <part name="J3" library="con-amp" deviceset="215876-6" device="" value="Valve"/>
 <part name="J4" library="con-amp" deviceset="215876-6" device="" value="FlowMeter"/>
-<part name="SUPPLY9" library="SparkFun" deviceset="VCC" device="" value="5V"/>
+<part name="SUPPLY9" library="SparkFun" deviceset="VCC" device="" value="12V"/>
 <part name="SUPPLY10" library="supply2" deviceset="GND" device=""/>
 <part name="J2" library="con-amp" deviceset="215876-6" device="" value="Fan"/>
-<part name="R4" library="rcl" deviceset="R-US_" device="0204/2V" value="3.3k"/>
-<part name="R5" library="rcl" deviceset="R-US_" device="0204/2V" value="5.1k"/>
+<part name="R4" library="rcl" deviceset="R-US_" device="0204/2V" value="10k"/>
+<part name="R5" library="rcl" deviceset="R-US_" device="0204/2V" value="3.3k"/>
 <part name="R6" library="rcl" deviceset="R-US_" device="0204/2V" value="10k"/>
 <part name="R7" library="rcl" deviceset="R-US_" device="0204/2V" value="2.2k"/>
 <part name="SUPPLY13" library="supply2" deviceset="GND" device=""/>
@@ -6527,6 +6527,7 @@ Source: http://www.murata.com .. GRM43DR72E224KW01.pdf</description>
 <part name="SUPPLY16" library="supply2" deviceset="GND" device=""/>
 <part name="SUPPLY17" library="SparkFun" deviceset="VCC" device="" value="12V"/>
 <part name="SUPPLY11" library="supply2" deviceset="GND" device=""/>
+<part name="R3" library="rcl" deviceset="R-US_" device="0204/2V" value="10k"/>
 </parts>
 <sheets>
 <sheet>
@@ -6562,7 +6563,7 @@ Source: http://www.murata.com .. GRM43DR72E224KW01.pdf</description>
 <instance part="J1" gate="G$1" x="124.46" y="144.78"/>
 <instance part="J3" gate="G$1" x="228.6" y="101.6"/>
 <instance part="J4" gate="G$1" x="228.6" y="83.82"/>
-<instance part="SUPPLY9" gate="1" x="218.44" y="88.9"/>
+<instance part="SUPPLY9" gate="1" x="213.36" y="93.98"/>
 <instance part="SUPPLY10" gate="GND" x="210.82" y="73.66"/>
 <instance part="J2" gate="G$1" x="228.6" y="55.88"/>
 <instance part="R4" gate="G$1" x="213.36" y="86.36"/>
@@ -6576,6 +6577,7 @@ Source: http://www.murata.com .. GRM43DR72E224KW01.pdf</description>
 <instance part="SUPPLY16" gate="GND" x="172.72" y="81.28"/>
 <instance part="SUPPLY17" gate="1" x="172.72" y="106.68"/>
 <instance part="SUPPLY11" gate="GND" x="218.44" y="50.8"/>
+<instance part="R3" gate="G$1" x="205.74" y="93.98"/>
 </instances>
 <busses>
 </busses>
@@ -6724,17 +6726,21 @@ Source: http://www.murata.com .. GRM43DR72E224KW01.pdf</description>
 <junction x="203.2" y="119.38"/>
 </segment>
 <segment>
-<pinref part="J4" gate="G$1" pin="1"/>
-<wire x1="226.06" y1="88.9" x2="218.44" y2="88.9" width="0.1524" layer="91"/>
-<pinref part="SUPPLY9" gate="1" pin="VCC"/>
-</segment>
-<segment>
 <pinref part="R8" gate="G$1" pin="2"/>
 <pinref part="SUPPLY17" gate="1" pin="VCC"/>
 </segment>
 <segment>
 <pinref part="R6" gate="G$1" pin="2"/>
 <pinref part="SUPPLY15" gate="1" pin="VCC"/>
+</segment>
+<segment>
+<pinref part="SUPPLY9" gate="1" pin="VCC"/>
+<wire x1="213.36" y1="93.98" x2="213.36" y2="88.9" width="0.1524" layer="91"/>
+<pinref part="J4" gate="G$1" pin="1"/>
+<wire x1="213.36" y1="88.9" x2="226.06" y2="88.9" width="0.1524" layer="91"/>
+<pinref part="R3" gate="G$1" pin="2"/>
+<wire x1="210.82" y1="93.98" x2="213.36" y2="93.98" width="0.1524" layer="91"/>
+<junction x="213.36" y="93.98"/>
 </segment>
 </net>
 <net name="D9" class="0">
@@ -6807,8 +6813,12 @@ Source: http://www.murata.com .. GRM43DR72E224KW01.pdf</description>
 <pinref part="R5" gate="G$1" pin="2"/>
 <junction x="208.28" y="86.36"/>
 <label x="195.58" y="86.36" size="1.778" layer="95"/>
-<wire x1="203.2" y1="86.36" x2="195.58" y2="86.36" width="0.1524" layer="91"/>
+<wire x1="203.2" y1="86.36" x2="200.66" y2="86.36" width="0.1524" layer="91"/>
+<wire x1="200.66" y1="86.36" x2="195.58" y2="86.36" width="0.1524" layer="91"/>
 <wire x1="208.28" y1="86.36" x2="203.2" y2="86.36" width="0.1524" layer="91"/>
+<pinref part="R3" gate="G$1" pin="1"/>
+<wire x1="200.66" y1="93.98" x2="200.66" y2="86.36" width="0.1524" layer="91"/>
+<junction x="200.66" y="86.36"/>
 </segment>
 </net>
 <net name="D1_TX" class="0">

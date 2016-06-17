@@ -17,12 +17,12 @@
 // **********************************************************************************
 
 // **********************************************************************************
-#include "Message.h"
-#include <RFM69.h>         
-#include <SPI.h>
-#include <SPIFlash.h>      
-#include <avr/wdt.h>
-#include <WirelessHEX69.h>
+#include "Message.h"			// Custom Message Class
+#include <RFM69.h>				// For Radio
+#include <SPI.h>				// For Flash
+#include <SPIFlash.h>			// For Flash/Wireless Programming
+#include <avr/wdt.h>			// For Wireless Programming
+#include <WirelessHEX69.h>		// For Wireless Programming
 
 #define NODEID      2       // node ID used for this unit
 #define GATEWAYID	1
@@ -34,7 +34,7 @@
 #define ACK_TIME    30  // # of ms to wait for an ack
 #define ENCRYPTKEY "automaticWaterSy"
 
-#define UPDATEPERIOD 4000
+#define UPDATEPERIOD 8000
 
 
 #define LED         9	// Moteinos hsave LEDs on D9
@@ -46,10 +46,16 @@
 #define VALVE_EN	4	// Enable Valve driver
 #define VALVE_P		5	// Positive terminal of Valve
 #define VALVE_N		6	// Negative terminal of Valve
+#define FLOWSENSOR	3	// Flow Sensor Pin
 
 RFM69 radio;
-char input = 0;
+
 long lastPeriod = -1;
+
+// Flow Sensor	
+volatile uint16_t pulses = 0;		// Flow Sensor number of pulses
+uint16_t lastPulseCount = 0;		// Last pulse count at flow rate calc
+uint32_t lastflowratetime = 0;		// Time between flow rate calc				
 
 /////////////////////////////////////////////////////////////////////////////
 // flash(SPI_CS, MANUFACTURER_ID)
@@ -69,6 +75,7 @@ void setup() {
 	pinMode(VALVE_EN, OUTPUT);
 	pinMode(VALVE_P, OUTPUT);
 	pinMode(VALVE_N, OUTPUT);
+	pinMode(FLOWSENSOR, INPUT_PULLUP);
 
 	Serial.begin(SERIAL_BAUD);
 	radio.initialize(FREQUENCY, NODEID, NETWORKID);
@@ -82,6 +89,8 @@ void setup() {
 	digitalWrite(VALVE_P, LOW);
 	digitalWrite(VALVE_N, LOW);
 	digitalWrite(VALVE_EN, HIGH);
+
+	attachInterrupt(digitalPinToInterrupt(FLOWSENSOR), flowSensorInterrupt, RISING);
 
 }
 
@@ -101,14 +110,31 @@ void loop() {
 		digitalWrite(VALVE_P, lastPeriod % 2);
 		digitalWrite(VALVE_N, (lastPeriod+1) % 2);
 
-		delay(30);
+		delay(500);
 		digitalWrite(VALVE_N, lastPeriod % 2);
-
 
 		Message msg(radio, GATEWAYID);
 		msg.add_data('V', analogRead(POWER12V));
 		msg.add_data('v', analogRead(POWER5V));
+		msg.add_data('f', pulses);
+		msg.add_data('Q', calcFlowRate());
 		msg.send_msg();
 	}
 	////////////////////////////////////////////////////////////////////////////////////////////
+}
+
+/*
+	Increment the pulse counter
+*/
+void flowSensorInterrupt() {
+	pulses++;
+}
+
+int calcFlowRate() {
+	float delta_t = (millis() - lastflowratetime);
+	float delta_p = (pulses - lastPulseCount);
+	lastPulseCount = pulses;
+	lastflowratetime = millis();
+
+	return (int)((delta_p * 1000) / delta_t / 5.5);
 }
