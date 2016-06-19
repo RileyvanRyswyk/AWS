@@ -47,8 +47,8 @@ Temporary Items
 .apdisk
 
 # Schematic save files
-*.s*
-*.b*
+*.s#*
+*.b#*
 
 # Visual Studio
 # ===========================
