@@ -55,6 +55,8 @@
 #define SOIL_N2		0	// Second Soil negative terminal
 #define SOIL_READ	A6	// Soil measurement read terminal
 
+#define NUM_READS	50 // Soil Moisture measurement
+
 
 RFM69 radio;
 SI7021 weatherShield_SI7021;
@@ -124,11 +126,11 @@ void loop() {
 		lastPeriod++;
 		digitalWrite(LED, lastPeriod % 2);
 		digitalWrite(FAN, lastPeriod % 2);
-		digitalWrite(VALVE_P, lastPeriod % 2);
-		digitalWrite(VALVE_N, (lastPeriod+1) % 2);
+		//digitalWrite(VALVE_P, lastPeriod % 2);
+		//digitalWrite(VALVE_N, (lastPeriod+1) % 2);
 
 		delay(500);
-		digitalWrite(VALVE_N, lastPeriod % 2);
+		//digitalWrite(VALVE_N, lastPeriod % 2);
 
 		char Pstr[10];
 		getPressure(Pstr);
@@ -233,20 +235,54 @@ int readSoilMoisture(int soilPin) {
 	digitalWrite(soilPin, HIGH);
 	digitalWrite(SOIL_P, LOW);
 	delay(readDelay);
-	int reading1 = analogRead(SOIL_READ);
-	digitalWrite(soilPin, LOW);
-	delay(readDelay);
-
+	int reading1 = readAnalogValue(SOIL_READ);
+	
 	// polarity 2 read
 	digitalWrite(soilPin, LOW);
 	digitalWrite(SOIL_P, HIGH);
 	delay(readDelay);
-	int reading2 = analogRead(SOIL_READ);
+	int reading2 = readAnalogValue(SOIL_READ);
 
 	// Turn off
-	digitalWrite(SOIL_P, LOW);
+	digitalWrite(SOIL_P, INPUT);
 	pinMode(soilPin, INPUT);
 
 	// invert the reading2 and return
 	return ( 1023 + reading1 - reading2 ) / 2;
+}
+
+
+/**
+	Reads and filters an analog value by mode and median filtering
+**/
+int readAnalogValue(int sensorpin) {
+	// read multiple values and sort them to take the mode
+	int sortedValues[NUM_READS];
+	for (int i = 0; i<NUM_READS; i++) {
+		int value = analogRead(sensorpin);
+		int j;
+		if (value<sortedValues[0] || i == 0) {
+			j = 0; //insert at first position
+		}
+		else {
+			for (j = 1; j<i; j++) {
+				if (sortedValues[j - 1] <= value && sortedValues[j] >= value) {
+					// j is insert position
+					break;
+				}
+			}
+		}
+		for (int k = i; k>j; k--) {
+			// move all values higher than current reading up one position
+			sortedValues[k] = sortedValues[k - 1];
+		}
+		sortedValues[j] = value; //insert current reading
+	}
+	//return scaled mode of 10 values
+	int returnval = 0;
+	for (int i = NUM_READS / 2 - 5; i<(NUM_READS / 2 + 5); i++) {
+		returnval += sortedValues[i];
+	}
+	returnval = returnval / 10;
+	return returnval;
 }
