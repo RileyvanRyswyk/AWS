@@ -4443,10 +4443,11 @@ WARNING: Not compatible with other 1812 PTC footprint.</description>
 <part name="R5" library="SparkFun-Resistors" deviceset="RESISTOR" device="PTH-1/4W" value="10k"/>
 <part name="R6" library="SparkFun-Resistors" deviceset="RESISTOR" device="PTH-1/4W" value="10k"/>
 <part name="R7" library="SparkFun-Resistors" deviceset="RESISTOR" device="PTH-1/4W" value="3.3k"/>
-<part name="R9" library="SparkFun-Resistors" deviceset="RESISTOR" device="PTH-1/4W" value="56k"/>
+<part name="R9" library="SparkFun-Resistors" deviceset="RESISTOR" device="PTH-1/4W" value="51K"/>
 <part name="R8" library="SparkFun-Resistors" deviceset="RESISTOR" device="PTH-1/4W" value="330"/>
 <part name="U$2" library="GeekAmmo" deviceset="DOCFIELD1" device=""/>
 <part name="U$3" library="GeekAmmo" deviceset="PTC" device=""/>
+<part name="J9" library="SparkFun-Connectors" deviceset="M02" device="5MM"/>
 </parts>
 <sheets>
 <sheet>
@@ -4493,6 +4494,7 @@ WARNING: Not compatible with other 1812 PTC footprint.</description>
 <instance part="R8" gate="G$1" x="-22.86" y="35.56" rot="R180"/>
 <instance part="U$2" gate="G$1" x="66.04" y="30.48"/>
 <instance part="U$3" gate="G$1" x="-73.66" y="137.16"/>
+<instance part="J9" gate="G$1" x="2.54" y="25.4" rot="R180"/>
 </instances>
 <busses>
 </busses>
@@ -4663,6 +4665,9 @@ WARNING: Not compatible with other 1812 PTC footprint.</description>
 <junction x="-15.24" y="45.72"/>
 <wire x1="-15.24" y1="53.34" x2="-35.56" y2="53.34" width="0.1524" layer="91"/>
 <label x="-35.56" y="53.34" size="1.778" layer="95"/>
+<pinref part="J9" gate="G$1" pin="1"/>
+<wire x1="-5.08" y1="25.4" x2="-15.24" y2="25.4" width="0.1524" layer="91"/>
+<wire x1="-15.24" y1="25.4" x2="-15.24" y2="45.72" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="A2" class="0">
@@ -4858,6 +4863,18 @@ WARNING: Not compatible with other 1812 PTC footprint.</description>
 <segment>
 <pinref part="J4" gate="G$1" pin="1"/>
 <pinref part="U$3" gate="G$1" pin="2"/>
+</segment>
+</net>
+<net name="D0" class="0">
+<segment>
+<pinref part="J9" gate="G$1" pin="2"/>
+<wire x1="-5.08" y1="22.86" x2="-35.56" y2="22.86" width="0.1524" layer="91"/>
+<label x="-35.56" y="22.86" size="1.778" layer="95"/>
+</segment>
+<segment>
+<pinref part="U$1" gate="G$1" pin="D0_RX"/>
+<wire x1="-63.5" y1="68.58" x2="-55.88" y2="68.58" width="0.1524" layer="91"/>
+<label x="-58.42" y="68.58" size="1.778" layer="95"/>
 </segment>
 </net>
 </nets>

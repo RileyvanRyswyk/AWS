@@ -21,7 +21,13 @@ bool Message::add_data(char id, char* str, int length) {
 	this->data[this->dataPtr++] = id;
 	this->data[this->dataPtr++] = ':';
 	for (int i = 0; i < length; i++) {
-		this->data[this->dataPtr++] = str[i];
+		if (str[i] != '\0') {
+			this->data[this->dataPtr++] = str[i];
+		}
+		else {
+			return true;
+		}
+		
 		if (this->dataPtr > MESSAGELENGTH) {
 			return false; //exceeding message length
 		}

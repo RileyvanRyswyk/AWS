@@ -23,6 +23,9 @@
 #include <SPIFlash.h>			// For Flash/Wireless Programming
 #include <avr/wdt.h>			// For Wireless Programming
 #include <WirelessHEX69.h>		// For Wireless Programming
+#include <SFE_BMP180.h>			// Weather Shield
+#include <SI7021.h>				// Weather Shield
+#include <Wire.h>				// Weather Shield
 
 #define NODEID      2       // node ID used for this unit
 #define GATEWAYID	1
@@ -39,16 +42,23 @@
 
 #define LED         9	// Moteinos hsave LEDs on D9
 #define FLASH_SS    8	// and FLASH SS on D8
-#define POWER12V	2	// 12V measurement
-#define POWER5V		6	// 5V measurement
-#define FAN			14	// Fan Driver Pin
-#define FAN_EN		15  // Enable Fan driver
-#define VALVE_EN	4	// Enable Valve driver
+#define POWER12V	A7	// 12V measurement
+#define BATT_EN		A3	// Battery measurement from WeatherShield
+#define POWER5V		A2	// 5V measurement
+#define FAN			1	// Fan Driver Pin
+#define DRIVER_EN	4	// Enable Valve driver
 #define VALVE_P		5	// Positive terminal of Valve
 #define VALVE_N		6	// Negative terminal of Valve
 #define FLOWSENSOR	3	// Flow Sensor Pin
+#define SOIL_N1		14	// 1st Negative terminal of soil measurement
+#define	SOIL_P		15	// Soil positive terminal
+#define SOIL_N2		0	// Second Soil negative terminal
+#define SOIL_READ	A6	// Soil measurement read terminal
+
 
 RFM69 radio;
+SI7021 weatherShield_SI7021;
+SFE_BMP180 weatherShield_BMP180;
 
 long lastPeriod = -1;
 
@@ -71,13 +81,17 @@ void setup() {
 	// Configure pin directions
 	pinMode(LED, OUTPUT);
 	pinMode(FAN, OUTPUT);
-	pinMode(FAN_EN, OUTPUT);
-	pinMode(VALVE_EN, OUTPUT);
+	pinMode(DRIVER_EN, OUTPUT);
 	pinMode(VALVE_P, OUTPUT);
 	pinMode(VALVE_N, OUTPUT);
 	pinMode(FLOWSENSOR, INPUT_PULLUP);
+	pinMode(BATT_EN, INPUT);
+	pinMode(SOIL_N1, INPUT);
+	pinMode(SOIL_N2, INPUT);
+	pinMode(SOIL_P, OUTPUT);
+	pinMode(SOIL_READ, INPUT);
 
-	Serial.begin(SERIAL_BAUD);
+	
 	radio.initialize(FREQUENCY, NODEID, NETWORKID);
 	radio.encrypt(ENCRYPTKEY); //OPTIONAL
 	#ifdef IS_RFM69HW
@@ -85,13 +99,16 @@ void setup() {
 	#endif
 
 	digitalWrite(FAN, LOW);
-	digitalWrite(FAN_EN, HIGH);
 	digitalWrite(VALVE_P, LOW);
 	digitalWrite(VALVE_N, LOW);
-	digitalWrite(VALVE_EN, HIGH);
+	digitalWrite(DRIVER_EN, HIGH);
+	digitalWrite(SOIL_P, LOW);
 
 	attachInterrupt(digitalPinToInterrupt(FLOWSENSOR), flowSensorInterrupt, RISING);
 
+	//initialize weather shield sensors  
+	weatherShield_SI7021.begin();
+	weatherShield_BMP180.begin();
 }
 
 void loop() {
@@ -113,12 +130,21 @@ void loop() {
 		delay(500);
 		digitalWrite(VALVE_N, lastPeriod % 2);
 
+		char Pstr[10];
+		getPressure(Pstr);
+
 		Message msg(radio, GATEWAYID);
 		msg.add_data('V', analogRead(POWER12V));
 		msg.add_data('v', analogRead(POWER5V));
 		msg.add_data('f', pulses);
 		msg.add_data('Q', calcFlowRate());
+		msg.add_data('s', readSoilMoisture(SOIL_N1));
+		msg.add_data('S', readSoilMoisture(SOIL_N2));
+		msg.add_data('P', Pstr, 10);
+		msg.add_data('T', weatherShield_SI7021.getCelsiusHundredths());
+		msg.add_data('H', weatherShield_SI7021.getHumidityPercent());
 		msg.send_msg();
+		
 	}
 	////////////////////////////////////////////////////////////////////////////////////////////
 }
@@ -137,4 +163,90 @@ int calcFlowRate() {
 	lastflowratetime = millis();
 
 	return (int)((delta_p * 1000) / delta_t / 5.5);
+}
+
+bool getPressure(char* Pstr) {
+	char status;
+	double T, P, p0, a;
+	// If you want sea-level-compensated pressure, as used in weather reports,
+	// you will need to know the altitude at which your measurements are taken.
+	// We're using a constant called ALTITUDE in this sketch:
+
+	// If you want to measure altitude, and not pressure, you will instead need
+	// to provide a known baseline pressure. This is shown at the end of the sketch.
+	// You must first get a temperature measurement to perform a pressure reading.
+	// Start a temperature measurement:
+	// If request is successful, the number of ms to wait is returned.
+	// If request is unsuccessful, 0 is returned.
+	status = weatherShield_BMP180.startTemperature();
+	if (status != 0)
+	{
+		// Wait for the measurement to complete:
+		delay(status);
+
+		// Retrieve the completed temperature measurement:
+		// Note that the measurement is stored in the variable T.
+		// Function returns 1 if successful, 0 if failure.
+		status = weatherShield_BMP180.getTemperature(T);
+		if (status != 0)
+		{
+			// Start a pressure measurement:
+			// The parameter is the oversampling setting, from 0 to 3 (highest res, longest wait).
+			// If request is successful, the number of ms to wait is returned.
+			// If request is unsuccessful, 0 is returned.
+			status = weatherShield_BMP180.startPressure(3);
+			if (status != 0)
+			{
+				// Wait for the measurement to complete:
+				delay(status);
+
+				// Retrieve the completed pressure measurement:
+				// Note that the measurement is stored in the variable P.
+				// Note also that the function requires the previous temperature measurement (T).
+				// (If temperature is stable, you can do one temperature measurement for a number of pressure measurements.)
+				// Function returns 1 if successful, 0 if failure.
+				status = weatherShield_BMP180.getPressure(P, T);
+				if (status == 0)
+				{
+					return false;
+				}
+				dtostrf(P, 3, 2, Pstr);
+				return true;
+			}
+		}
+	}	
+	return false;
+}
+
+/*
+	Read Soil Moisture from selected pin
+	Average 2 times
+*/
+int readSoilMoisture(int soilPin) {
+	// delay to reduce capacitive effects
+	int readDelay = 88;
+
+	//Enable read Pin
+	pinMode(soilPin, OUTPUT);
+
+	// polarity 1 read
+	digitalWrite(soilPin, HIGH);
+	digitalWrite(SOIL_P, LOW);
+	delay(readDelay);
+	int reading1 = analogRead(SOIL_READ);
+	digitalWrite(soilPin, LOW);
+	delay(readDelay);
+
+	// polarity 2 read
+	digitalWrite(soilPin, LOW);
+	digitalWrite(SOIL_P, HIGH);
+	delay(readDelay);
+	int reading2 = analogRead(SOIL_READ);
+
+	// Turn off
+	digitalWrite(SOIL_P, LOW);
+	pinMode(soilPin, INPUT);
+
+	// invert the reading2 and return
+	return ( 1023 + reading1 - reading2 ) / 2;
 }
