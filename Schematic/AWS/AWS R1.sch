@@ -4440,7 +4440,6 @@ WARNING: Not compatible with other 1812 PTC footprint.</description>
 <part name="R4" library="SparkFun-Resistors" deviceset="RESISTOR" device="PTH-1/4W" value="3.3k"/>
 <part name="C1" library="SparkFun-Capacitors" deviceset="CAP_POL" device="PTH1" value="2.2u"/>
 <part name="C2" library="SparkFun-Capacitors" deviceset="CAP_POL" device="PTH1" value="2.2u"/>
-<part name="R5" library="SparkFun-Resistors" deviceset="RESISTOR" device="PTH-1/4W" value="10k"/>
 <part name="R6" library="SparkFun-Resistors" deviceset="RESISTOR" device="PTH-1/4W" value="10k"/>
 <part name="R7" library="SparkFun-Resistors" deviceset="RESISTOR" device="PTH-1/4W" value="3.3k"/>
 <part name="R9" library="SparkFun-Resistors" deviceset="RESISTOR" device="PTH-1/4W" value="51K"/>
@@ -4487,7 +4486,6 @@ WARNING: Not compatible with other 1812 PTC footprint.</description>
 <instance part="R4" gate="G$1" x="-101.6" y="124.46" rot="R90"/>
 <instance part="C1" gate="G$1" x="45.72" y="139.7"/>
 <instance part="C2" gate="G$1" x="-10.16" y="121.92" rot="R180"/>
-<instance part="R5" gate="G$1" x="-25.4" y="96.52" rot="R180"/>
 <instance part="R6" gate="G$1" x="-20.32" y="88.9" rot="R180"/>
 <instance part="R7" gate="G$1" x="-30.48" y="83.82" rot="R90"/>
 <instance part="R9" gate="G$1" x="-22.86" y="45.72" rot="R180"/>
@@ -4538,12 +4536,7 @@ WARNING: Not compatible with other 1812 PTC footprint.</description>
 </segment>
 <segment>
 <pinref part="SUPPLY9" gate="G$1" pin="12V"/>
-<wire x1="-15.24" y1="91.44" x2="-15.24" y2="93.98" width="0.1524" layer="91"/>
-<pinref part="R5" gate="G$1" pin="1"/>
-<wire x1="-15.24" y1="93.98" x2="-15.24" y2="96.52" width="0.1524" layer="91"/>
-<wire x1="-20.32" y1="96.52" x2="-17.78" y2="96.52" width="0.1524" layer="91"/>
-<wire x1="-17.78" y1="96.52" x2="-15.24" y2="93.98" width="0.1524" layer="91"/>
-<junction x="-15.24" y="93.98"/>
+<wire x1="-15.24" y1="91.44" x2="-15.24" y2="96.52" width="0.1524" layer="91"/>
 <pinref part="J2" gate="G$1" pin="2"/>
 <wire x1="-15.24" y1="91.44" x2="-10.16" y2="91.44" width="0.1524" layer="91"/>
 <wire x1="-10.16" y1="91.44" x2="-7.62" y2="88.9" width="0.1524" layer="91"/>
@@ -4701,9 +4694,7 @@ WARNING: Not compatible with other 1812 PTC footprint.</description>
 <segment>
 <pinref part="R6" gate="G$1" pin="2"/>
 <wire x1="-25.4" y1="88.9" x2="-30.48" y2="88.9" width="0.1524" layer="91"/>
-<pinref part="R5" gate="G$1" pin="2"/>
 <wire x1="-30.48" y1="88.9" x2="-38.1" y2="88.9" width="0.1524" layer="91"/>
-<wire x1="-30.48" y1="96.52" x2="-30.48" y2="88.9" width="0.1524" layer="91"/>
 <junction x="-30.48" y="88.9"/>
 <pinref part="R7" gate="G$1" pin="2"/>
 <label x="-33.02" y="91.44" size="1.778" layer="95" rot="R180"/>
