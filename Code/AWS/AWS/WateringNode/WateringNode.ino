@@ -26,8 +26,9 @@
 #include <SFE_BMP180.h>			// Weather Shield
 #include <SI7021.h>				// Weather Shield
 #include <Wire.h>				// Weather Shield
+#include <avr/wdt.h>			// Watchdog Timer
 
-#define NODEID      2       // node ID used for this unit
+#define NODEID      2			// node ID used for this unit
 #define GATEWAYID	1
 #define NETWORKID   20
 #define FREQUENCY     RF69_915MHZ
@@ -53,7 +54,7 @@
 #define SOIL_READ	A6	// Soil measurement read terminal
 
 #define NUM_READS	50 // Soil Moisture measurement
-#define SHUT_ATTEMPTS	5 // Number of attempts to shut the valve before sending a message
+#define CLOSE_ATTEMPTS	20 // Number of attempts to close the valve before sending a message
 
 RFM69 radio;
 SI7021 weatherShield_SI7021;
@@ -65,7 +66,8 @@ int dataLength = 0;
 
 // For sending messages if valve fails to close
 volatile bool valveOpen = false;
-volatile int shutValveAttempt = 0;
+volatile int closeValveAttempt = 0;
+volatile bool valveError = false;
 
 // Flow Sensor	
 volatile uint16_t pulses = 0;		// Flow Sensor number of pulses
@@ -103,19 +105,23 @@ void setup() {
 	#endif
 
 	stopFan();
-	shutValve();
+	closeValve();
 	digitalWrite(DRIVER_EN, HIGH);
 	digitalWrite(SOIL_P, LOW);
-	shutValve();
+	closeValve();
 
 	attachInterrupt(digitalPinToInterrupt(FLOWSENSOR), flowSensorInterrupt, RISING);
 
 	//initialize weather shield sensors  
 	weatherShield_SI7021.begin();
 	weatherShield_BMP180.begin();
+
+	// Start watchdog Timer
+	watchdogEnableReset();
 }
 
 void loop() {
+
 	// Check for existing RF data, potentially for a new sketch wireless upload
 	if (radio.receiveDone()) {
 		checkForWirelessProgramming();
@@ -139,6 +145,11 @@ void loop() {
 		// Give time to recieve data
 		delay(10);
 	}	
+
+	// Shut valve if it's not supposed to be open
+	if (valveError) emergencyCloseValve();
+	// Reset watchdog timer if the valve is not open
+	if (!valveOpen) wdt_reset();
 }
 
 
@@ -181,19 +192,27 @@ void checkForCommands() {
 		}
 		// Turn water off
 		else if (command == 'w') {
-			shutValve();
+			closeValve();
 			Message msg(radio, GATEWAYID, 'W');
 			msg.add_data('Q', calcFlowRate(false));
 			msg.send_msg();
 		}
+		// Turn fan on
 		else if (command == 'F') {
 			startFan();
 			Message msg(radio, GATEWAYID, 'F');
 			msg.send_msg();
 		}
+		// Turn fan off
 		else if (command == 'f') {
 			stopFan();
 			Message msg(radio, GATEWAYID, 'f');
+			msg.send_msg();
+		}
+		// Reset wdt so that the valve will stay open
+		else if (command == 't') {
+			wdt_reset();
+			Message msg(radio, GATEWAYID, 't');
 			msg.send_msg();
 		}
 	}
@@ -206,7 +225,9 @@ void checkForWirelessProgramming() {
 	// About to do wireless programming, turn off the valve
 	if (radio.DATALEN >= 4 && radio.DATA[0] == 'F' && radio.DATA[1] == 'L' && radio.DATA[2] == 'X' && radio.DATA[3] == '?') {
 		stopFan();
-		shutValve();
+		closeValve();
+		// Prevent wdt from interrupting
+		watchdogDisableReset();
 	}
 	CheckForWirelessHEX(radio, flash, true);
 }
@@ -217,19 +238,26 @@ void checkForWirelessProgramming() {
 void flowSensorInterrupt() {
 	pulses++;
 	
-	// In case the valve doesn't shut, send a message
+	// In case the valve doesn't close, send a message
 	if (!valveOpen) {
-		noInterrupts();
-		shutValve();
-		if (shutValveAttempt > SHUT_ATTEMPTS) {
-			// Send error message
-			Message msg(radio, GATEWAYID, 'E');
-			msg.add_data('Q', calcFlowRate(false));
-			msg.send_msg();
-		}
-		interrupts();
+		valveError = true;
 	}
 
+}
+
+/*
+	Shuts valve and will send a message if needed
+*/
+void emergencyCloseValve() {
+	closeValve();
+	if (closeValveAttempt > CLOSE_ATTEMPTS) {
+		// Send error message
+		Message msg(radio, GATEWAYID, 'E');
+		msg.add_data('Q', calcFlowRate(false));
+		msg.send_msg();
+	}
+	// Reset valve status
+	valveError = false;
 }
 
 float calcFlowRate(bool reset) {
@@ -380,19 +408,20 @@ void stopFan() {
 
 void openValve() {
 	valveOpen = true;
-	shutValveAttempt = 0;
+	valveError = false;
+	closeValveAttempt = 0;
 	digitalWrite(VALVE_P, HIGH);
 	digitalWrite(VALVE_N, LOW);
 	delay(500);
 	digitalWrite(VALVE_P, LOW);
 }
 
-void shutValve() {
+void closeValve() {
 	digitalWrite(VALVE_P, LOW);
 	digitalWrite(VALVE_N, HIGH);
 	delay(500);
 	digitalWrite(VALVE_N, LOW);
-	shutValveAttempt++;
+	closeValveAttempt++;
 	valveOpen = false;
 }
 
@@ -402,4 +431,53 @@ void Blink(byte PIN, int DELAY_MS)
 	digitalWrite(PIN, HIGH);
 	delay(DELAY_MS);
 	digitalWrite(PIN, LOW);
+}
+
+void watchdogEnableReset(void) {
+	cli();			// disable all interrupts
+	wdt_reset();	// reset the WDT timer
+
+	/*
+		WDTCSR configuration:
+		WDIE = 1 : Interrupt Enable
+		WDE = 1  : Reset Enable
+		WDP3 = 1 : For 8000ms Time-out
+		WDP2 = 0 : For 8000ms Time-out
+		WDP1 = 0 : For 8000ms Time-out
+		WDP0 = 1 : For 8000ms Time-out
+	*/
+	
+	// Enter Watchdog Configuration mode:
+	WDTCSR |= (1 << WDCE) | (1 << WDE);
+	// Set Watchdog settings:
+	WDTCSR = (1 << WDIE) | (1 << WDE) | (1 << WDP3) | (0 << WDP2) | (0 << WDP1) | (1 << WDP0);
+	sei();
+}
+
+void watchdogDisableReset(void) {
+	cli();			// disable all interrupts
+	wdt_reset();	// reset the WDT timer
+
+	/*
+		WDTCSR configuration:
+		WDIE = 1 : Interrupt Enable
+		WDE =  0 : Reset Disabled
+		WDP3 = 1 : For 8000ms Time-out
+		WDP2 = 0 : For 8000ms Time-out
+		WDP1 = 0 : For 8000ms Time-out
+		WDP0 = 1 : For 8000ms Time-out
+	*/
+
+	// Enter Watchdog Configuration mode:
+	WDTCSR |= (1 << WDCE) | (1 << WDE);
+	// Set Watchdog settings:
+	WDTCSR = (1 << WDIE) | (0 << WDE) | (1 << WDP3) | (0 << WDP2) | (0 << WDP1) | (1 << WDP0);
+	sei();
+}
+
+// Watchdog timer interrupt.
+ISR(WDT_vect) 
+{
+	// Include your code here - be careful not to use functions they may cause the interrupt to hang and
+	// prevent a reset.
 }
