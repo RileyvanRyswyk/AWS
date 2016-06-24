@@ -37,9 +37,6 @@
 #define ACK_TIME    30  // # of ms to wait for an ack
 #define ENCRYPTKEY "automaticWaterSy"
 
-#define UPDATEPERIOD 8000
-
-
 #define LED         9	// Moteinos hsave LEDs on D9
 #define FLASH_SS    8	// and FLASH SS on D8
 #define POWER12V	A7	// 12V measurement
@@ -56,17 +53,22 @@
 #define SOIL_READ	A6	// Soil measurement read terminal
 
 #define NUM_READS	50 // Soil Moisture measurement
-
+#define SHUT_ATTEMPTS	5 // Number of attempts to shut the valve before sending a message
 
 RFM69 radio;
 SI7021 weatherShield_SI7021;
 SFE_BMP180 weatherShield_BMP180;
 
-long lastPeriod = -1;
+// For buffering received data from the radio
+char readBuffer[RF69_MAX_DATA_LEN];
+int dataLength = 0;
+
+// For sending messages if valve fails to close
+volatile bool valveOpen = false;
+volatile int shutValveAttempt = 0;
 
 // Flow Sensor	
 volatile uint16_t pulses = 0;		// Flow Sensor number of pulses
-uint16_t lastPulseCount = 0;		// Last pulse count at flow rate calc
 uint32_t lastflowratetime = 0;		// Time between flow rate calc				
 
 /////////////////////////////////////////////////////////////////////////////
@@ -100,11 +102,11 @@ void setup() {
 		radio.setHighPower(); //only for RFM69HW!
 	#endif
 
-	digitalWrite(FAN, LOW);
-	digitalWrite(VALVE_P, LOW);
-	digitalWrite(VALVE_N, LOW);
+	stopFan();
+	shutValve();
 	digitalWrite(DRIVER_EN, HIGH);
 	digitalWrite(SOIL_P, LOW);
+	shutValve();
 
 	attachInterrupt(digitalPinToInterrupt(FLOWSENSOR), flowSensorInterrupt, RISING);
 
@@ -116,39 +118,97 @@ void setup() {
 void loop() {
 	// Check for existing RF data, potentially for a new sketch wireless upload
 	if (radio.receiveDone()) {
-		CheckForWirelessHEX(radio, flash, true);
+		checkForWirelessProgramming();
+
+		// Buffer received data before it is removed
+		dataLength = radio.DATALEN;
+		for (int i = 0; i < dataLength; i++) {
+			readBuffer[i] = radio.DATA[i];
+		}
+
+		if (radio.ACK_REQUESTED) {
+			radio.sendACK();
+		}
+
+		// Checks for commands and executes them
+		checkForCommands();
+
+		Blink(LED, 10);
 	}
+	else {
+		// Give time to recieve data
+		delay(10);
+	}	
+}
 
-	////////////////////////////////////////////////////////////////////////////////////////////
-	// Real sketch code here, let's blink the onboard LED
-	if ((int)(millis() / UPDATEPERIOD) > lastPeriod)
-	{
-		lastPeriod++;
-		digitalWrite(LED, lastPeriod % 2);
-		digitalWrite(FAN, lastPeriod % 2);
-		//digitalWrite(VALVE_P, lastPeriod % 2);
-		//digitalWrite(VALVE_N, (lastPeriod+1) % 2);
 
-		delay(500);
-		//digitalWrite(VALVE_N, lastPeriod % 2);
+/*
+	Check for radio message commands
+*/
+void checkForCommands() {
 
-		char Pstr[10];
-		getPressure(Pstr);
-
-		Message msg(radio, GATEWAYID);
-		msg.add_data('V', analogRead(POWER12V));
-		msg.add_data('v', analogRead(POWER5V));
-		msg.add_data('f', pulses);
-		msg.add_data('Q', calcFlowRate());
-		msg.add_data('s', readSoilMoisture(SOIL_N1));
-		msg.add_data('S', readSoilMoisture(SOIL_N2));
-		msg.add_data('P', Pstr, 10);
-		msg.add_data('T', weatherShield_SI7021.getCelsiusHundredths());
-		msg.add_data('H', weatherShield_SI7021.getHumidityPercent());
-		msg.send_msg();
+	if (dataLength >= 5 && readBuffer[0] == 'A' && readBuffer[1] == 'W' && readBuffer[2] == 'S') {
+		char command = readBuffer[4];
 		
+		// Get and send sensor data
+		if (command == 'S') {
+			char Pstr[10];
+			float temperature = getPressureAndTemp(Pstr);
+
+			Message msg(radio, GATEWAYID, 'S');
+			msg.add_data('V', analogRead(POWER12V));
+			msg.add_data('v', analogRead(POWER5V));
+			msg.add_data('f', (int) pulses);
+			msg.add_data('Q', calcFlowRate());
+			msg.add_data('s', readSoilMoisture(SOIL_N1));
+			msg.add_data('S', readSoilMoisture(SOIL_N2));
+			msg.send_msg();
+
+			// Send second portion
+			msg.add_data('P', Pstr, 10);
+			msg.add_data('t', temperature);
+			msg.add_data('T', weatherShield_SI7021.getCelsiusHundredths());
+			msg.add_data('H', (int) weatherShield_SI7021.getHumidityPercent());
+			msg.add_data('r', radio.RSSI);
+			msg.send_msg();
+		}
+		// Turn water on
+		else if (command == 'W') {
+			openValve();
+			Message msg(radio, GATEWAYID, 'W');
+			msg.add_data('Q', calcFlowRate(false));
+			msg.send_msg();
+		}
+		// Turn water off
+		else if (command == 'w') {
+			shutValve();
+			Message msg(radio, GATEWAYID, 'W');
+			msg.add_data('Q', calcFlowRate(false));
+			msg.send_msg();
+		}
+		else if (command == 'F') {
+			startFan();
+			Message msg(radio, GATEWAYID, 'F');
+			msg.send_msg();
+		}
+		else if (command == 'f') {
+			stopFan();
+			Message msg(radio, GATEWAYID, 'f');
+			msg.send_msg();
+		}
 	}
-	////////////////////////////////////////////////////////////////////////////////////////////
+}
+
+/*
+	Check to see if there is a new sketch to download
+*/
+void checkForWirelessProgramming() {
+	// About to do wireless programming, turn off the valve
+	if (radio.DATALEN >= 4 && radio.DATA[0] == 'F' && radio.DATA[1] == 'L' && radio.DATA[2] == 'X' && radio.DATA[3] == '?') {
+		stopFan();
+		shutValve();
+	}
+	CheckForWirelessHEX(radio, flash, true);
 }
 
 /*
@@ -156,18 +216,41 @@ void loop() {
 */
 void flowSensorInterrupt() {
 	pulses++;
+	
+	// In case the valve doesn't shut, send a message
+	if (!valveOpen) {
+		noInterrupts();
+		shutValve();
+		if (shutValveAttempt > SHUT_ATTEMPTS) {
+			// Send error message
+			Message msg(radio, GATEWAYID, 'E');
+			msg.add_data('Q', calcFlowRate(false));
+			msg.send_msg();
+		}
+		interrupts();
+	}
+
 }
 
-int calcFlowRate() {
+float calcFlowRate(bool reset) {
 	float delta_t = (millis() - lastflowratetime);
-	float delta_p = (pulses - lastPulseCount);
-	lastPulseCount = pulses;
-	lastflowratetime = millis();
-
-	return (int)((delta_p * 1000) / delta_t / 5.5);
+	
+	if (reset) {
+		pulses = 0;
+		lastflowratetime = millis();
+	}
+	
+	return ((pulses * 1000) / delta_t / 5.5);
 }
 
-bool getPressure(char* Pstr) {
+float calcFlowRate() {
+	return calcFlowRate(true);
+}
+
+/**
+	Returns Temperature and pressure is return in passed char*
+**/
+float getPressureAndTemp(char* Pstr) {
 	char status;
 	double T, P, p0, a;
 	// If you want sea-level-compensated pressure, as used in weather reports,
@@ -210,14 +293,14 @@ bool getPressure(char* Pstr) {
 				status = weatherShield_BMP180.getPressure(P, T);
 				if (status == 0)
 				{
-					return false;
+					return -100; // impossible temp
 				}
 				dtostrf(P, 3, 2, Pstr);
-				return true;
+				return T;
 			}
 		}
 	}	
-	return false;
+	return -100; // impossible temp
 }
 
 /*
@@ -226,7 +309,7 @@ bool getPressure(char* Pstr) {
 */
 int readSoilMoisture(int soilPin) {
 	// delay to reduce capacitive effects
-	int readDelay = 88;
+	int readDelay = 10;
 
 	//Enable read Pin
 	pinMode(soilPin, OUTPUT);
@@ -285,4 +368,38 @@ int readAnalogValue(int sensorpin) {
 	}
 	returnval = returnval / 10;
 	return returnval;
+}
+
+void startFan() {
+	digitalWrite(FAN, HIGH);
+}
+
+void stopFan() {
+	digitalWrite(FAN, LOW);
+}
+
+void openValve() {
+	valveOpen = true;
+	shutValveAttempt = 0;
+	digitalWrite(VALVE_P, HIGH);
+	digitalWrite(VALVE_N, LOW);
+	delay(500);
+	digitalWrite(VALVE_P, LOW);
+}
+
+void shutValve() {
+	digitalWrite(VALVE_P, LOW);
+	digitalWrite(VALVE_N, HIGH);
+	delay(500);
+	digitalWrite(VALVE_N, LOW);
+	shutValveAttempt++;
+	valveOpen = false;
+}
+
+void Blink(byte PIN, int DELAY_MS)
+{
+	pinMode(PIN, OUTPUT);
+	digitalWrite(PIN, HIGH);
+	delay(DELAY_MS);
+	digitalWrite(PIN, LOW);
 }

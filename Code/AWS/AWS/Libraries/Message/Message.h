@@ -12,6 +12,7 @@
 
 #include <RFM69.h>
 //#include <Time.h>
+#include<stdlib.h>
 
 #define MESSAGELENGTH	63
 
@@ -20,14 +21,19 @@ class Message {
 	int destination, dataPtr = 0;
 	char data[MESSAGELENGTH];
 public:
-	Message(RFM69 r, int dest) { radio = r; destination = dest; }
+	Message(RFM69 r, int dest, char msgID); 
 	void set_radio(RFM69 r) { radio = r; }
 	void set_destination(int dest) { destination = dest; }
 	bool add_data(char id, int number);
+	bool add_data(char id, float number);
 	bool add_data(char id, char* str, int length);
+	bool add_data(char id, char* str, int offset, int length);
+	bool add_data(char* str, int offset, int length);
+	bool add_data(char* str, int length);
 	bool send_msg();
 private:
 	bool intToChar(int a);
+	bool floatToChar(float a);
 };
 
 #endif

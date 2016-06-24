@@ -22,6 +22,7 @@
 #include <SPI.h>
 #include <SPIFlash.h>      
 #include <WirelessHEX69.h> 
+#include "Message.h"		// Custom Message Class
 
 #define NODEID             1	//this node's ID, should be unique among nodes on this NETWORKID
 #define NETWORKID          20	//what network this node is on
@@ -33,13 +34,18 @@
 #define ACK_TIME    50  // # of ms to wait for an ack
 #define TIMEOUT     3000
 
-#define LED           9 // Moteinos hsave LEDs on D9
+#define LED		9	// Moteinos hsave LEDs on D9
+#define RED		3	// Red LED
+#define GREEN	5	// Green LED
+#define BLUE	6	 // Blue LED
 
 
 RFM69 radio;
 char c = 0;
 char input[64]; //serial input buffer
 byte targetID = 0;
+
+enum Colour { red, green, blue };
 
 void setup() {
 	Serial.begin(SERIAL_BAUD);
@@ -48,14 +54,19 @@ void setup() {
 	#ifdef IS_RFM69HW
 		radio.setHighPower(); //only for RFM69HW!
 	#endif
-	Serial.println("Start wireless gateway...");
+
+	pinMode(LED, OUTPUT);
+	pinMode(RED, OUTPUT);
+	pinMode(GREEN, OUTPUT);
+	pinMode(BLUE, OUTPUT);
+	changeLED(127, 127, 127);
 }
 
 void loop() {
 
-	// Send data for wireless programming
-	RunSerialCommands();
-
+	// Send data for wireless programming otherwise send AWS Commands
+	RunAWSCommands(RunWirelessProgrammingCommands());
+	
 	if (radio.receiveDone())
 	{
 		for (byte i = 0; i < radio.DATALEN; i++)
@@ -64,12 +75,13 @@ void loop() {
 		if (radio.ACK_REQUESTED)
 		{
 			radio.sendACK();
-			Serial.print(" - ACK sent");
+			//Serial.print(" - ACK sent");
 		}
 
 		Serial.println();
+		Blink(LED, 5); //heartbeat
 	}
-	Blink(LED, 5); //heartbeat
+	
 }
 
 void Blink(byte PIN, int DELAY_MS)
@@ -82,8 +94,8 @@ void Blink(byte PIN, int DELAY_MS)
 
 
 // Checks for Serial Commands to transmit data for wireless programming
-void RunSerialCommands() {
-	byte inputLen = readSerialLine(input, 10, 64, 100); //readSerialLine(char* input, char endOfLineChar=10, byte maxLength=64, uint16_t timeout=1000);
+byte RunWirelessProgrammingCommands() {
+	byte inputLen = readSerialLine(input, 10, 64, 10); //readSerialLine(char* input, char endOfLineChar=10, byte maxLength=64, uint16_t timeout=1000);
 
 	if (inputLen == 4 && input[0] == 'F' && input[1] == 'L' && input[2] == 'X' && input[3] == '?') {
 		if (targetID == 0)
@@ -116,6 +128,60 @@ void RunSerialCommands() {
 		}
 	}
 	else if (inputLen>0) { //just echo back
-		Serial.print("SERIAL IN > "); Serial.println(input);
+		//Serial.print("SERIAL IN > "); Serial.println(input);
+		return inputLen;
+	} 
+	return 0;
+}
+
+/**
+	Transfers the AWS Commands
+	NOTE: Will only work with NODE_IDS less than 10
+**/
+void RunAWSCommands(byte inputLen) {
+	if (inputLen > 6 && input[0] == 'A' && input[1] == 'W' && input[2] == 'S' && input[3] == ':') {
+		int dest = input[4] - '0';
+		char command = input[6];
+		Message msg(radio, dest, command);
+		msg.add_data(input, 7, inputLen);
+		msg.send_msg();
 	}
+	else if (input[0] == 'r') {
+		Serial.println(radio.readRSSI());
+	}
+	// Change LED Colour to corressponding command
+	else if (inputLen > 8 && input[0] == 'L' && input[1] == 'E' && input[2] == 'D' && input[3] == ':') {
+		
+		unsigned short colour = 0, r = 0, g = 0, b = 0;
+		
+		for (int i = 4; i < inputLen; i++) {
+			if (input[i] == ':') {
+				colour++;
+			}
+			else if(colour == red) {
+				r *= 10;
+				r += input[i] - '0';
+			} else if (colour == green) {
+				g *= 10;
+				g += input[i] - '0';
+			} else if (colour == blue) {
+				b *= 10;
+				b += input[i] - '0';
+			}
+		}
+		changeLED(r, g, b);	
+	}
+}
+
+void changeLED(int red, int green, int blue) {
+	
+	// Make sure valid range
+	red = (red > 255) ? 255 : (red < 0) ? 0 : red;
+	green = (green > 255) ? 255 : (green < 0) ? 0 : green;
+	blue = (blue > 255) ? 255 : (blue < 0) ? 0 : blue;
+
+	// Update Values
+	analogWrite(RED, red);
+	analogWrite(GREEN, green);
+	analogWrite(BLUE, blue);
 }
