@@ -1,0 +1,10 @@
+#!/bin/bash
+# Flashes new gateway code to the Moteino gateway
+
+echo "Begining Flash"
+
+gpio mode 03 out
+gpio write 03 1
+sudo avrdude -p atmega328p -C ~/avrdude_gpio.conf -c pi_1 -v -U flash:w:Gateway.ino.hex:i
+
+gpio mode 03 input

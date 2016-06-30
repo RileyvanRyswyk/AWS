@@ -71,6 +71,8 @@ void loop() {
 	{
 		for (byte i = 0; i < radio.DATALEN; i++)
 			Serial.print((char)radio.DATA[i]);
+		// Print line for python
+		Serial.println();
 
 		if (radio.ACK_REQUESTED)
 		{
