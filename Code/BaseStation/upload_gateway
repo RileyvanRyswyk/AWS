@@ -1,5 +1,6 @@
 #!/bin/bash
 # Flashes new gateway code to the Moteino gateway
+# Run from terminal using ./upload_gateway
 
 echo "Begining Flash"
 
