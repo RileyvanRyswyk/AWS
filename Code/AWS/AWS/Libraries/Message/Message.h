@@ -1,6 +1,15 @@
 // Message.h
 // Used to construct and send a message to the base station!
 
+
+/*
+	Message Strucutre
+	AWS:msgID:isLastMessage:data
+
+	if isLastMessage == f -> false
+	else true
+*/
+
 #ifndef _MESSAGE_h
 #define _MESSAGE_h
 
@@ -19,6 +28,7 @@
 class Message {
 	RFM69 radio;
 	int destination, dataPtr = 0;
+	int numberOfMessages, messageNumber = 1;
 	char data[MESSAGELENGTH];
 public:
 	Message(RFM69 r, int dest, char msgID); 
@@ -34,6 +44,7 @@ public:
 private:
 	bool intToChar(int a);
 	bool floatToChar(float a);
+	void checkAvailableMessageSpace(int datalength);
 };
 
 #endif

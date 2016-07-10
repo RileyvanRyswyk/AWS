@@ -16,13 +16,17 @@ Message::Message(RFM69 r, int dest, char msgID ) {
 	this->data[2] = 'S';
 	this->data[3] = ':';
 	this->data[4] = msgID;
-	this->dataPtr += 5;
+	this->data[5] = ':';
+	this->data[6] = 't';
+	this->dataPtr += 7;
 }
 
 /**
  * Add an int to the message with a single char id
 **/
 bool Message::add_data(char id, int number) {
+	this->checkAvailableMessageSpace(4);
+
 	this->data[this->dataPtr++] = ':';
 	this->data[this->dataPtr++] = id;
 	this->data[this->dataPtr++] = ':';
@@ -33,6 +37,9 @@ bool Message::add_data(char id, int number) {
 * Add a float to the message with a single char id
 **/
 bool Message::add_data(char id, float number) {
+	// Check Space for maximum required space
+	this->checkAvailableMessageSpace(15); 
+
 	this->data[this->dataPtr++] = ':';
 	this->data[this->dataPtr++] = id;
 	this->data[this->dataPtr++] = ':';
@@ -43,6 +50,8 @@ bool Message::add_data(char id, float number) {
 * Add char array to the message with a single char id
 **/
 bool Message::add_data(char id, char* str, int offset, int length) {
+	this->checkAvailableMessageSpace(length - offset + 3);
+
 	this->data[this->dataPtr++] = ':';
 	this->data[this->dataPtr++] = id;
 	this->data[this->dataPtr++] = ':';
@@ -67,6 +76,8 @@ bool Message::add_data(char id, char* str, int length) {
 }
 
 bool Message::add_data(char* str, int offset, int length) {
+	this->checkAvailableMessageSpace(length - offset);
+
 	for (int i = offset; i < length; i++) {
 		if (str[i] != '\0') {
 			this->data[this->dataPtr++] = str[i];
@@ -84,6 +95,7 @@ bool Message::add_data(char* str, int offset, int length) {
 }
 
 bool Message::add_data(char* str, int length) {
+	this->checkAvailableMessageSpace(length);
 	this->add_data(str, 0, length);
 }
 
@@ -93,7 +105,7 @@ bool Message::add_data(char* str, int length) {
 bool Message::send_msg() {
 	if (radio.sendWithRetry(destination, this->data, this->dataPtr, 2, 80)) {
 		// Reset Message
-		this->dataPtr = 5;
+		this->dataPtr = 7;
 		return true;
 	}
 	else {
@@ -137,4 +149,18 @@ bool Message::floatToChar(float a) {
 }
 
 
+/*
+	Checks to make sure there is enough space in the message to send it.
+	If not, it will send the current message and reset the data pointer.
+*/
+void Message::checkAvailableMessageSpace(int datalength) {
+	if (this->dataPtr + datalength > MESSAGELENGTH) {
+		// Set isLastMessage to False
+		this->data[6] = 'f';
+		// Send current message, which reset dataPtr
+		this->send_msg();
+		// Reset isLastMessage
+		this->data[6] = 't';
+	}
+}
 

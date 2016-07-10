@@ -173,9 +173,7 @@ void checkForCommands() {
 			msg.add_data('Q', calcFlowRate());
 			msg.add_data('s', readSoilMoisture(SOIL_N1));
 			msg.add_data('S', readSoilMoisture(SOIL_N2));
-			msg.send_msg();
-
-			// Send second portion
+			
 			msg.add_data('P', Pstr, 10);
 			msg.add_data('t', temperature);
 			msg.add_data('T', weatherShield_SI7021.getCelsiusHundredths());

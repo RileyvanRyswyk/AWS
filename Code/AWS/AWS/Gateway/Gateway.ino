@@ -69,10 +69,28 @@ void loop() {
 	
 	if (radio.receiveDone())
 	{
-		for (byte i = 0; i < radio.DATALEN; i++)
+		// To Check for last message
+		char buffer[7];
+		for (byte i = 0; i < radio.DATALEN; i++) {
 			Serial.print((char)radio.DATA[i]);
-		// Print line for python
-		Serial.println();
+			if (i == 3) {
+				Serial.print(radio.SENDERID, DEC);
+				Serial.print(':');
+			}
+			if (i < 7) {
+				buffer[i] = radio.DATA[i];
+			}
+		}
+		
+		// Send Line Termination Char to Rasp Pi to indicate end of message
+		if (buffer[0] == 'A' && buffer[1] == 'W' && buffer[3] == 'S' && buffer[6] != 'f') {
+			// Print line for python
+			Serial.println();
+		}
+		else {
+			Serial.print(';');
+		}
+		
 
 		if (radio.ACK_REQUESTED)
 		{
@@ -80,7 +98,6 @@ void loop() {
 			//Serial.print(" - ACK sent");
 		}
 
-		Serial.println();
 		Blink(LED, 5); //heartbeat
 	}
 	
