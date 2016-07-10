@@ -75,7 +75,7 @@ void loop() {
 			Serial.print((char)radio.DATA[i]);
 			if (i == 3) {
 				Serial.print(radio.SENDERID, DEC);
-				Serial.print(':');
+				Serial.print(';');
 			}
 			if (i < 7) {
 				buffer[i] = radio.DATA[i];
@@ -88,7 +88,7 @@ void loop() {
 			Serial.println();
 		}
 		else {
-			Serial.print(';');
+			Serial.print(',');
 		}
 		
 

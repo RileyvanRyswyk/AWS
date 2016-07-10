@@ -14,9 +14,9 @@ Message::Message(RFM69 r, int dest, char msgID ) {
 	this->data[0] = 'A';
 	this->data[1] = 'W';
 	this->data[2] = 'S';
-	this->data[3] = ':';
+	this->data[3] = ';';
 	this->data[4] = msgID;
-	this->data[5] = ':';
+	this->data[5] = ';';
 	this->data[6] = 't';
 	this->dataPtr += 7;
 }
@@ -27,7 +27,7 @@ Message::Message(RFM69 r, int dest, char msgID ) {
 bool Message::add_data(char id, int number) {
 	this->checkAvailableMessageSpace(4);
 
-	this->data[this->dataPtr++] = ':';
+	this->data[this->dataPtr++] = ';';
 	this->data[this->dataPtr++] = id;
 	this->data[this->dataPtr++] = ':';
 	return this->intToChar(number);
@@ -40,7 +40,7 @@ bool Message::add_data(char id, float number) {
 	// Check Space for maximum required space
 	this->checkAvailableMessageSpace(15); 
 
-	this->data[this->dataPtr++] = ':';
+	this->data[this->dataPtr++] = ';';
 	this->data[this->dataPtr++] = id;
 	this->data[this->dataPtr++] = ':';
 	return this->floatToChar(number);
@@ -52,7 +52,7 @@ bool Message::add_data(char id, float number) {
 bool Message::add_data(char id, char* str, int offset, int length) {
 	this->checkAvailableMessageSpace(length - offset + 3);
 
-	this->data[this->dataPtr++] = ':';
+	this->data[this->dataPtr++] = ';';
 	this->data[this->dataPtr++] = id;
 	this->data[this->dataPtr++] = ':';
 	for (int i = offset; i < length; i++) {
