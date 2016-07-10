@@ -1,0 +1,4 @@
+# Circuit Board todos
+
+1. Change resistor value for soil measurement (too high right now)
+2. Add a better analog reference (use a diode one)
