@@ -53,9 +53,9 @@
 #define SOIL_N2		0	// Second Soil negative terminal
 #define SOIL_READ	A6	// Soil measurement read terminal
 
-#define NUM_READS		75		// Soil Moisture measurement
-#define READ_INTERVAL	12000	// Take a measurement every __ milliseconds
-#define READ_WINDOW		50		// Number of measurements to track over
+#define NUM_READS		100		// Soil Moisture measurement
+#define READ_INTERVAL	20000	// Take a measurement every __ milliseconds
+#define READ_WINDOW		60		// Number of measurements to track over
 #define CLOSE_ATTEMPTS	20		// Number of attempts to close the valve before sending a message
 
 RFM69 radio;
