@@ -53,8 +53,10 @@
 #define SOIL_N2		0	// Second Soil negative terminal
 #define SOIL_READ	A6	// Soil measurement read terminal
 
-#define NUM_READS	50 // Soil Moisture measurement
-#define CLOSE_ATTEMPTS	20 // Number of attempts to close the valve before sending a message
+#define NUM_READS		75		// Soil Moisture measurement
+#define READ_INTERVAL	12000	// Take a measurement every __ milliseconds
+#define READ_WINDOW		50		// Number of measurements to track over
+#define CLOSE_ATTEMPTS	20		// Number of attempts to close the valve before sending a message
 
 RFM69 radio;
 SI7021 weatherShield_SI7021;
@@ -71,7 +73,12 @@ volatile bool valveError = false;
 
 // Flow Sensor	
 volatile uint16_t pulses = 0;		// Flow Sensor number of pulses
-uint32_t lastflowratetime = 0;		// Time between flow rate calc				
+uint32_t lastflowratetime = 0;		// Time between flow rate calc
+
+int soilReadings[2][READ_WINDOW];	// Holds the time sorted values of the Soil Resistivity Readings
+int soilReadingsPtr[2] = {0, 0};	// Points to the most recent soil reading
+bool soilReadingsReady = false;		// true if soilReadings is filled with data
+long lastSoilReading;				// time of last soilReading
 
 /////////////////////////////////////////////////////////////////////////////
 // flash(SPI_CS, MANUFACTURER_ID)
@@ -118,6 +125,8 @@ void setup() {
 
 	// Start watchdog Timer
 	watchdogEnableReset();
+
+	lastSoilReading = millis();
 }
 
 void loop() {
@@ -150,6 +159,8 @@ void loop() {
 	if (valveError) emergencyCloseValve();
 	// Reset watchdog timer if the valve is not open
 	if (!valveOpen) wdt_reset();
+
+	takeSoilMoistureReadings();
 }
 
 
@@ -171,8 +182,8 @@ void checkForCommands() {
 			msg.add_data('v', analogRead(POWER5V));
 			msg.add_data('f', (int) pulses);
 			msg.add_data('Q', calcFlowRate());
-			msg.add_data('s', readSoilMoisture(SOIL_N1));
-			msg.add_data('S', readSoilMoisture(SOIL_N2));
+			msg.add_data('s', calcAveragedSoilMoisture(0));
+			msg.add_data('S', calcAveragedSoilMoisture(1));
 			
 			msg.add_data('P', Pstr, 10);
 			msg.add_data('t', temperature);
@@ -212,7 +223,7 @@ void checkForCommands() {
 			wdt_reset();
 			Message msg(radio, GATEWAYID, 't');
 			msg.send_msg();
-		}
+		} 
 	}
 }
 
@@ -330,8 +341,51 @@ float getPressureAndTemp(char* Pstr) {
 }
 
 /*
+	Calculates the averaged soil moisutre according to soilReadings
+	over the READING_WINDOW * READING_INTERVAL
+*/
+int calcAveragedSoilMoisture(int sensor) {
+	int length = (soilReadingsReady) ? READ_WINDOW : (soilReadingsPtr[sensor]);
+	unsigned int result = 0;
+
+	for (int i = 0; i < length; i++) {
+		result += soilReadings[sensor][i];
+	}
+
+	return result / length;
+}
+
+/*
+	reads the soil moisture readings and stores them in soilReadings
+*/
+void takeSoilMoistureReadings() {
+
+	if (millis() - lastSoilReading > READ_INTERVAL) {
+		if (soilReadingsPtr[0] < READ_WINDOW) {
+			soilReadingsPtr[0]++;
+		}
+		else {
+			soilReadingsPtr[0] = 1;
+			soilReadingsReady = true;
+		}
+
+		soilReadings[0][soilReadingsPtr[0] - 1] = readSoilMoisture(SOIL_N1);
+
+		if (soilReadingsPtr[1] < READ_WINDOW) {
+			soilReadingsPtr[1]++;
+		}
+		else {
+			soilReadingsPtr[1] = 1;
+		}
+
+		soilReadings[1][soilReadingsPtr[1] - 1] = readSoilMoisture(SOIL_N2);
+
+		lastSoilReading = millis();
+	}
+}
+
+/*
 	Read Soil Moisture from selected pin
-	Average 2 times
 */
 int readSoilMoisture(int soilPin) {
 	// delay to reduce capacitive effects
@@ -365,10 +419,17 @@ int readSoilMoisture(int soilPin) {
 	Reads and filters an analog value by mode and median filtering
 **/
 int readAnalogValue(int sensorpin) {
+
 	// read multiple values and sort them to take the mode
 	int sortedValues[NUM_READS];
 	for (int i = 0; i<NUM_READS; i++) {
+		
+		// Record start time 
+		long start = micros();
+
+		// Read voltage
 		int value = analogRead(sensorpin);
+		
 		int j;
 		if (value<sortedValues[0] || i == 0) {
 			j = 0; //insert at first position
@@ -386,6 +447,10 @@ int readAnalogValue(int sensorpin) {
 			sortedValues[k] = sortedValues[k - 1];
 		}
 		sortedValues[j] = value; //insert current reading
+
+		// Try to target 100 us per execution
+		long delayTime = 100 + start - micros();
+		delayMicroseconds(delayTime);
 	}
 	//return scaled mode of 10 values
 	int returnval = 0;
@@ -393,6 +458,7 @@ int readAnalogValue(int sensorpin) {
 		returnval += sortedValues[i];
 	}
 	returnval = returnval / 10;
+
 	return returnval;
 }
 
@@ -408,6 +474,7 @@ void openValve() {
 	valveOpen = true;
 	valveError = false;
 	closeValveAttempt = 0;
+	lastflowratetime = millis();
 	digitalWrite(VALVE_P, HIGH);
 	digitalWrite(VALVE_N, LOW);
 	delay(500);
@@ -478,4 +545,24 @@ ISR(WDT_vect)
 {
 	// Include your code here - be careful not to use functions they may cause the interrupt to hang and
 	// prevent a reset.
+}
+
+// Reads the voltage of the regulator
+int readVcc() {
+	unsigned int result;
+	byte saveADMUX;
+
+	saveADMUX = ADMUX;
+
+	// Read 1.1V reference against AVcc
+	ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
+	delay(2); // Wait for Vref to settle
+	ADCSRA |= _BV(ADSC); // Convert
+	while (bit_is_set(ADCSRA, ADSC));
+	result = ADCL;
+	result |= ADCH << 8;
+	result = 1126400L / result; // Back-calculate AVcc in mV
+
+	ADMUX = saveADMUX;  // restore it on exit...
+	return result;
 }

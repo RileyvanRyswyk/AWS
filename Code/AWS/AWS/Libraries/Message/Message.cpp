@@ -25,7 +25,7 @@ Message::Message(RFM69 r, int dest, char msgID ) {
  * Add an int to the message with a single char id
 **/
 bool Message::add_data(char id, int number) {
-	this->checkAvailableMessageSpace(4);
+	this->checkAvailableMessageSpace(15);
 
 	this->data[this->dataPtr++] = ';';
 	this->data[this->dataPtr++] = id;
