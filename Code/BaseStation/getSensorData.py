@@ -13,17 +13,15 @@ con = mdb.connect('localhost', 'aws_pi', 'T4hTvURJjm7xrhef', 'AWS');
 ser = serial.Serial('/dev/ttyAMA0', 115200, timeout=1)
 
 ser.reset_input_buffer()
-ser.write('AWS:2:M')
+ser.write('AWS:2:S')
 
-for x in range(15):
-    time.sleep(1)
-    try:
-        serdata = ser.readline()
-        if len(serdata) > 3:
+try:
+    serdata = ser.readline()
+    if len(serdata) > 3:
+        print serdata
 
-            print serdata
-    except Exception as inst:
-        print(type(inst))    # the exception instance
-        print(inst.args)     # arguments stored in .args
-        print(inst)          # __str__ allows args to be printed directly,
-        traceback.print_exc()
+except Exception as inst:
+    print(type(inst))    # the exception instance
+    print(inst.args)     # arguments stored in .args
+    print(inst)          # __str__ allows args to be printed directly,
+    traceback.print_exc()
