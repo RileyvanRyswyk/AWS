@@ -43,6 +43,7 @@
 RFM69 radio;
 char c = 0;
 char input[64]; //serial input buffer
+char radioBuffer[RF69_MAX_DATA_LEN];
 byte targetID = 0;
 
 enum Colour { red, green, blue };
@@ -69,34 +70,37 @@ void loop() {
 	
 	if (radio.receiveDone())
 	{
-		// To Check for last message
-		char buffer[7];
-		for (byte i = 0; i < radio.DATALEN; i++) {
-			Serial.print((char)radio.DATA[i]);
-			if (i == 3) {
-				Serial.print(radio.SENDERID, DEC);
-				Serial.print(';');
-			}
-			if (i < 7) {
-				buffer[i] = radio.DATA[i];
-			}
+		// Store message in buffer
+		int length = radio.DATALEN;
+		int senderId = radio.SENDERID;
+		for (byte i = 0; i < length; i++) {
+			radioBuffer[i] = (char) radio.DATA[i];
 		}
 		
+		// Send ACK if requested -- need to do quickly
+		if (radio.ACK_REQUESTED)
+		{
+			radio.sendACK();
+			//Serial.print(" - ACK sent");
+		}
+
+		for (byte i = 0; i < length; i++) {
+			Serial.print(radioBuffer[i]);
+			if (i == 3) {
+				Serial.print(senderId, DEC);
+				Serial.print(';');
+			}
+		}
+
 		// Send Line Termination Char to Rasp Pi to indicate end of message
-		if (buffer[0] == 'A' && buffer[1] == 'W' && buffer[3] == 'S' && buffer[6] != 'f') {
+		if (radioBuffer[0] == 'A' && radioBuffer[1] == 'W' && radioBuffer[3] == 'S' && radioBuffer[6] != 'f') {
 			// Print line for python
 			Serial.println();
 		}
 		else {
 			Serial.print(',');
 		}
-		
 
-		if (radio.ACK_REQUESTED)
-		{
-			radio.sendACK();
-			//Serial.print(" - ACK sent");
-		}
 
 		Blink(LED, 5); //heartbeat
 	}

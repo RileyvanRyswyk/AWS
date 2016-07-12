@@ -16,6 +16,7 @@ ser.reset_input_buffer()
 ser.write('AWS:2:S')
 
 try:
+    #time.sleep(1)
     serdata = ser.readline()
     if len(serdata) > 3:
         print serdata

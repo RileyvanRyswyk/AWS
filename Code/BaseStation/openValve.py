@@ -67,7 +67,7 @@ def getSensorData():
 
 schedule.every().day.at("5:00").do(job)
 schedule.every().day.at("6:55").do(job)
-scheduler.every(15).minutes.do(getSensorData)
+schedule.every(5).minutes.do(getSensorData)
 
 while True:
     schedule.run_pending()
