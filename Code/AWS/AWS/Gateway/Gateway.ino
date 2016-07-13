@@ -93,8 +93,9 @@ void loop() {
 		}
 
 		// Send Line Termination Char to Rasp Pi to indicate end of message
-		if (radioBuffer[0] == 'A' && radioBuffer[1] == 'W' && radioBuffer[3] == 'S' && radioBuffer[6] != 'f') {
+		if (radioBuffer[0] == 'A' && radioBuffer[1] == 'W' && radioBuffer[2] == 'S' && radioBuffer[6] != 'f') {
 			// Print line for python
+			
 			Serial.println();
 		}
 		else {
@@ -163,6 +164,7 @@ byte RunWirelessProgrammingCommands() {
 **/
 void RunAWSCommands(byte inputLen) {
 	if (inputLen > 6 && input[0] == 'A' && input[1] == 'W' && input[2] == 'S' && input[3] == ':') {
+		
 		int dest = input[4] - '0';
 		char command = input[6];
 		Message msg(radio, dest, command);

@@ -48,13 +48,16 @@
 #define VALVE_P		5	// Positive terminal of Valve
 #define VALVE_N		6	// Negative terminal of Valve
 #define FLOWSENSOR	3	// Flow Sensor Pin
-#define SOIL_N1		14	// 1st Negative terminal of soil measurement
 #define	SOIL_P		15	// Soil positive terminal
-#define SOIL_N2		0	// Second Soil negative terminal
 #define SOIL_READ	A6	// Soil measurement read terminal
 
-#define NUM_READS		100		// Soil Moisture measurement
-#define READ_INTERVAL	20000	// Take a measurement every __ milliseconds
+const short SOIL_PINS[2] = { 0, 14 };	// The soil pins
+
+#define NUM_SOIL_PROBES	2		// 1st Negative terminal of soil measurement
+#define SOIL_READ_DELAY	10		// Delay in milliseconds between each analogRead()
+#define NUM_READS		10		// Soil Moisture measurement
+#define	FILTER_WINDOW	3		// take +-Filter window 
+#define READ_INTERVAL	10000	// Take a measurement every __ milliseconds
 #define READ_WINDOW		60		// Number of measurements to track over
 #define CLOSE_ATTEMPTS	20		// Number of attempts to close the valve before sending a message
 
@@ -79,6 +82,7 @@ int soilReadings[2][READ_WINDOW];	// Holds the time sorted values of the Soil Re
 int soilReadingsPtr[2] = {0, 0};	// Points to the most recent soil reading
 bool soilReadingsReady = false;		// true if soilReadings is filled with data
 long lastSoilReading;				// time of last soilReading
+short probePtr = 0;					// Used to access each probe on a different iteration 
 
 /////////////////////////////////////////////////////////////////////////////
 // flash(SPI_CS, MANUFACTURER_ID)
@@ -99,8 +103,8 @@ void setup() {
 	pinMode(VALVE_N, OUTPUT);
 	pinMode(FLOWSENSOR, INPUT_PULLUP);
 	pinMode(BATT_EN, INPUT);
-	pinMode(SOIL_N1, INPUT);
-	pinMode(SOIL_N2, INPUT);
+	pinMode(SOIL_PINS[0], INPUT);
+	pinMode(SOIL_PINS[1], INPUT);
 	pinMode(SOIL_P, OUTPUT);
 	pinMode(SOIL_READ, INPUT);
 
@@ -150,17 +154,14 @@ void loop() {
 
 		Blink(LED, 10);
 	}
-	else {
-		// Give time to recieve data
-		delay(10);
-	}	
-
+	
 	// Shut valve if it's not supposed to be open
 	if (valveError) emergencyCloseValve();
 	// Reset watchdog timer if the valve is not open
 	if (!valveOpen) wdt_reset();
 
-	takeSoilMoistureReadings();
+	// sleep 10 ms if not taking soil readings
+	if (!takeSoilMoistureReadings()) delay(10);
 }
 
 
@@ -174,22 +175,26 @@ void checkForCommands() {
 		
 		// Get and send sensor data
 		if (command == 'S') {
+
 			char Pstr[10];
-			float temperature = getPressureAndTemp(Pstr);
+			float temperature = getPressureAndTemp(Pstr); // 33 ms
 
 			Message msg(radio, GATEWAYID, 'S');
+			
+			// Take 1-2 ms
 			msg.add_data('V', analogRead(POWER12V));
 			msg.add_data('v', analogRead(POWER5V));
 			msg.add_data('f', (int) pulses);
 			msg.add_data('Q', calcFlowRate());
-			msg.add_data('s', calcAveragedSoilMoisture(0));
-			msg.add_data('S', calcAveragedSoilMoisture(1));
-			
+			msg.add_data('s', calcAveragedSoilMoisture(0));		
+			msg.add_data('S', calcAveragedSoilMoisture(1));		
 			msg.add_data('P', Pstr, 10);
+			
 			msg.add_data('t', temperature);
 			msg.add_data('T', weatherShield_SI7021.getCelsiusHundredths());
 			msg.add_data('H', (int) weatherShield_SI7021.getHumidityPercent());
 			msg.add_data('r', radio.RSSI);
+
 			msg.send_msg();
 		}
 		// Turn water on
@@ -358,30 +363,33 @@ int calcAveragedSoilMoisture(int sensor) {
 /*
 	reads the soil moisture readings and stores them in soilReadings
 */
-void takeSoilMoistureReadings() {
+bool takeSoilMoistureReadings() {
 
-	if (millis() - lastSoilReading > READ_INTERVAL) {
-		if (soilReadingsPtr[0] < READ_WINDOW) {
-			soilReadingsPtr[0]++;
+	long currentTime = millis();
+
+	if (currentTime - lastSoilReading > READ_INTERVAL) {
+		if (soilReadingsPtr[probePtr] < READ_WINDOW) {
+			soilReadingsPtr[probePtr]++;
 		}
 		else {
-			soilReadingsPtr[0] = 1;
+			soilReadingsPtr[probePtr] = 1;
 			soilReadingsReady = true;
 		}
 
-		soilReadings[0][soilReadingsPtr[0] - 1] = readSoilMoisture(SOIL_N1);
+		soilReadings[probePtr][soilReadingsPtr[probePtr] - 1] = readSoilMoisture(SOIL_PINS[probePtr]);
 
-		if (soilReadingsPtr[1] < READ_WINDOW) {
-			soilReadingsPtr[1]++;
+		lastSoilReading = currentTime;
+		
+		probePtr++;
+		if (probePtr == NUM_SOIL_PROBES) {
+			probePtr = 0;
 		}
-		else {
-			soilReadingsPtr[1] = 1;
-		}
-
-		soilReadings[1][soilReadingsPtr[1] - 1] = readSoilMoisture(SOIL_N2);
-
-		lastSoilReading = millis();
+		
+		return true;
 	}
+	else {
+		return false;
+	}	
 }
 
 /*
@@ -389,7 +397,7 @@ void takeSoilMoistureReadings() {
 */
 int readSoilMoisture(int soilPin) {
 	// delay to reduce capacitive effects
-	int readDelay = 10;
+	int readDelay = 3;
 
 	//Enable read Pin
 	pinMode(soilPin, OUTPUT);
@@ -425,7 +433,7 @@ int readAnalogValue(int sensorpin) {
 	for (int i = 0; i<NUM_READS; i++) {
 		
 		// Record start time 
-		long start = micros();
+		long start = millis();
 
 		// Read voltage
 		int value = analogRead(sensorpin);
@@ -449,12 +457,13 @@ int readAnalogValue(int sensorpin) {
 		sortedValues[j] = value; //insert current reading
 
 		// Try to target 100 us per execution
-		long delayTime = 100 + start - micros();
-		delayMicroseconds(delayTime);
+		long delayTime = SOIL_READ_DELAY + start - millis();
+		if (delayTime < 0) delayTime = 0;
+		delay(delayTime);
 	}
 	//return scaled mode of 10 values
 	int returnval = 0;
-	for (int i = NUM_READS / 2 - 5; i<(NUM_READS / 2 + 5); i++) {
+	for (int i = NUM_READS / 2 - FILTER_WINDOW; i<(NUM_READS / 2 + FILTER_WINDOW); i++) {
 		returnval += sortedValues[i];
 	}
 	returnval = returnval / 10;
