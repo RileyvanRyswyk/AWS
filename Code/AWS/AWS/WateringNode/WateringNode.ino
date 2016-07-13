@@ -185,7 +185,7 @@ void checkForCommands() {
 			msg.add_data('V', analogRead(POWER12V));
 			msg.add_data('v', analogRead(POWER5V));
 			msg.add_data('f', (int) pulses);
-			msg.add_data('Q', calcFlowRate());
+			msg.add_data('Q', calcFlowRate(true));
 			msg.add_data('s', calcAveragedSoilMoisture(0));		
 			msg.add_data('S', calcAveragedSoilMoisture(1));		
 			msg.add_data('P', Pstr, 10);
@@ -275,18 +275,14 @@ void emergencyCloseValve() {
 }
 
 float calcFlowRate(bool reset) {
-	float delta_t = (millis() - lastflowratetime);
+	float flow_rate = ((pulses * 1000) / (millis() - lastflowratetime) / 5.5);
 	
 	if (reset) {
 		pulses = 0;
 		lastflowratetime = millis();
 	}
 	
-	return ((pulses * 1000) / delta_t / 5.5);
-}
-
-float calcFlowRate() {
-	return calcFlowRate(true);
+	return flow_rate;
 }
 
 /**
