@@ -7,7 +7,7 @@ import schedule
 import MySQLdb as mdb # interact with MySQL
 
 # Declare database variables. Change accordingly
-con = mdb.connect('localhost', 'aws_pi', 'T4hTvURJjm7xrhef', 'AWS');
+con = mdb.connect('localhost', 'aws_pi', 'CYqJKam4TxE6XTL8', 'AWS');
 
 # Delare serial port settings, also opens the serial port
 ser = serial.Serial('/dev/ttyAMA0', 115200, timeout=1)
