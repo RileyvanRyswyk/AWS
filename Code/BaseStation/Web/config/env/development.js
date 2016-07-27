@@ -17,8 +17,11 @@ module.exports = {
    * environment (see config/connections.js and config/models.js )           *
    ***************************************************************************/
 
-  // models: {
-  //   connection: 'someMongodbServer'
-  // }
+   models: {
+     connection: 'mysql'
+   },
+
+   // Because the PI is slow...
+   hookTimeout: 40000
 
 };
